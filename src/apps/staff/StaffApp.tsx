@@ -44,11 +44,9 @@ export const StaffApp = () => {
                   <div className="flex items-center gap-3 mb-2">
                     <span className="font-bold text-lg">
                       고객 #{req.customerNumber ?? '-'}
-                      {req.fittingRoomId && (
-                        <span style={{ marginLeft: '0.5rem', color: 'var(--primary)' }}>
-                          — {t('Fitting Room')} {req.fittingRoomId}
-                        </span>
-                      )}
+                      <span style={{ marginLeft: '0.5rem', color: req.roomNumber ? 'var(--primary)' : 'var(--text-muted)' }}>
+                        {req.roomNumber ? `— 피팅룸 ${req.roomNumber}번` : '— 현장 안내'}
+                      </span>
                     </span>
                     <span className={`status-badge ${req.status}`}>{t(req.status)}</span>
                   </div>
@@ -80,6 +78,11 @@ export const StaffApp = () => {
                       <CheckSquare size={18} /> {t('Complete')}
                     </button>
                   )}
+                  {req.status === 'completed' && (
+                    <span style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 600, padding: '0.4rem 0.75rem' }}>
+                      ✓ {t('COMPLETED')}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -95,13 +98,20 @@ export const StaffApp = () => {
                       className="flex gap-3 items-center p-3"
                       style={{ background: 'var(--surface-hover)', borderRadius: '8px' }}
                     >
-                      <div>
+                      <div style={{ flex: 1 }}>
                         <p className="font-medium">{item.productName}</p>
                         <p className="text-sm text-muted flex gap-2 mt-1">
                           <span>{t('Color')}: <strong style={{ color: 'var(--text-primary)' }}>{item.color}</strong></span>
                           <span>|</span>
                           <span>{t('Size')}: <strong style={{ color: 'var(--text-primary)' }}>{item.size}</strong></span>
+                          <span>|</span>
+                          <span>수량: <strong style={{ color: 'var(--text-primary)' }}>1개</strong></span>
                         </p>
+                        {item.serialCode && (
+                          <p className="text-sm mt-1" style={{ fontFamily: 'monospace', letterSpacing: '0.04em', color: 'var(--primary)', fontWeight: 700 }}>
+                            {item.serialCode}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}

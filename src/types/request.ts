@@ -22,6 +22,8 @@ export interface FittingRequestItem {
   productName: string;
   color: string;
   size: string;
+  variantId?: number;
+  serialCode?: string;
 }
 
 /**
@@ -79,6 +81,7 @@ export interface GetRequestsResponse {
 export interface ProductVariant {
   color: string;
   size: string;
+  serialCode?: string;
 }
 
 /** GET /api/products/{id} 응답 */

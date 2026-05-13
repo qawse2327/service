@@ -84,115 +84,42 @@ PRODUCTS = [
     (30, "Halter Neck Top",          44000),
 ]
 
-# (product_id, color, size, stock)
-VARIANTS = [
-    # 1: Classic White T-Shirt
-    (1,"White","S",10),(1,"White","M",8),(1,"White","L",5),(1,"White","XL",3),
-    (1,"Black","S",7),(1,"Black","M",9),(1,"Black","L",6),(1,"Black","XL",4),
-    (1,"Grey","S",6),(1,"Grey","M",7),(1,"Grey","L",8),(1,"Grey","XL",2),
-    # 2: Denim Jacket Vintage
-    (2,"Blue","M",5),(2,"Blue","L",4),(2,"Blue","XL",3),
-    (2,"Black","M",4),(2,"Black","L",6),(2,"Black","XL",2),
-    # 3: Pleated Midi Skirt
-    (3,"Beige","S",8),(3,"Beige","M",6),(3,"Beige","L",4),
-    (3,"Navy","S",5),(3,"Navy","M",7),(3,"Navy","L",3),
-    (3,"Olive","S",4),(3,"Olive","M",5),(3,"Olive","L",6),
-    # 4: Oversize Wool Coat
-    (4,"Charcoal","Free",6),(4,"Camel","Free",4),(4,"Black","Free",5),
-    # 5: Slim Chino Pants
-    (5,"Khaki","28",7),(5,"Khaki","30",8),(5,"Khaki","32",5),(5,"Khaki","34",3),
-    (5,"Navy","28",4),(5,"Navy","30",6),(5,"Navy","32",7),(5,"Navy","34",4),
-    (5,"Olive","28",3),(5,"Olive","30",5),(5,"Olive","32",6),(5,"Olive","34",2),
-    # 6: Striped Linen Shirt
-    (6,"White","S",6),(6,"White","M",8),(6,"White","L",5),(6,"White","XL",3),
-    (6,"Blue","S",5),(6,"Blue","M",7),(6,"Blue","L",6),(6,"Blue","XL",2),
-    # 7: Knit Cardigan
-    (7,"Cream","S",5),(7,"Cream","M",7),(7,"Cream","L",6),
-    (7,"Grey","S",4),(7,"Grey","M",6),(7,"Grey","L",8),
-    (7,"Pink","S",7),(7,"Pink","M",5),(7,"Pink","L",3),
-    # 8: Wide Leg Trousers
-    (8,"Black","S",6),(8,"Black","M",8),(8,"Black","L",5),(8,"Black","XL",3),
-    (8,"Brown","S",4),(8,"Brown","M",6),(8,"Brown","L",7),(8,"Brown","XL",2),
-    (8,"Sand","S",5),(8,"Sand","M",7),(8,"Sand","L",4),(8,"Sand","XL",3),
-    # 9: Floral Sundress
-    (9,"Floral","S",5),(9,"Floral","M",7),(9,"Floral","L",4),
-    (9,"Navy","S",6),(9,"Navy","M",5),(9,"Navy","L",3),
-    # 10: Bomber Jacket
-    (10,"Olive","S",4),(10,"Olive","M",6),(10,"Olive","L",5),(10,"Olive","XL",3),
-    (10,"Black","S",5),(10,"Black","M",7),(10,"Black","L",6),(10,"Black","XL",2),
-    (10,"Khaki","S",3),(10,"Khaki","M",5),(10,"Khaki","L",4),(10,"Khaki","XL",2),
-    # 11: Turtleneck Sweater
-    (11,"Ivory","S",5),(11,"Ivory","M",7),(11,"Ivory","L",6),(11,"Ivory","XL",3),
-    (11,"Charcoal","S",4),(11,"Charcoal","M",6),(11,"Charcoal","L",8),(11,"Charcoal","XL",4),
-    (11,"Wine","S",6),(11,"Wine","M",5),(11,"Wine","L",4),(11,"Wine","XL",2),
-    # 12: Cargo Pants
-    (12,"Olive","S",5),(12,"Olive","M",7),(12,"Olive","L",6),(12,"Olive","XL",3),
-    (12,"Black","S",6),(12,"Black","M",8),(12,"Black","L",5),(12,"Black","XL",4),
-    # 13: Wrap Dress
-    (13,"Burgundy","S",5),(13,"Burgundy","M",6),(13,"Burgundy","L",4),
-    (13,"Forest","S",4),(13,"Forest","M",7),(13,"Forest","L",5),
-    # 14: Crewneck Sweatshirt
-    (14,"Grey","S",8),(14,"Grey","M",10),(14,"Grey","L",7),(14,"Grey","XL",5),
-    (14,"Black","S",6),(14,"Black","M",9),(14,"Black","L",8),(14,"Black","XL",4),
-    (14,"Navy","S",5),(14,"Navy","M",7),(14,"Navy","L",6),(14,"Navy","XL",3),
-    # 15: High Rise Jeans
-    (15,"Light Blue","24",5),(15,"Light Blue","26",7),(15,"Light Blue","28",6),(15,"Light Blue","30",4),
-    (15,"Dark Blue","24",4),(15,"Dark Blue","26",8),(15,"Dark Blue","28",7),(15,"Dark Blue","30",5),
-    # 16: Blazer Jacket
-    (16,"Navy","S",4),(16,"Navy","M",6),(16,"Navy","L",5),
-    (16,"Black","S",5),(16,"Black","M",7),(16,"Black","L",6),
-    (16,"Camel","S",3),(16,"Camel","M",5),(16,"Camel","L",4),
-    # 17: Polo Shirt
-    (17,"White","S",8),(17,"White","M",10),(17,"White","L",7),(17,"White","XL",4),
-    (17,"Navy","S",6),(17,"Navy","M",9),(17,"Navy","L",8),(17,"Navy","XL",3),
-    (17,"Forest","S",5),(17,"Forest","M",7),(17,"Forest","L",6),(17,"Forest","XL",2),
-    # 18: A-Line Dress
-    (18,"Black","S",6),(18,"Black","M",8),(18,"Black","L",5),
-    (18,"White","S",5),(18,"White","M",7),(18,"White","L",4),
-    # 19: Utility Vest
-    (19,"Olive","S",4),(19,"Olive","M",6),(19,"Olive","L",5),(19,"Olive","XL",3),
-    (19,"Khaki","S",5),(19,"Khaki","M",7),(19,"Khaki","L",6),(19,"Khaki","XL",2),
-    # 20: Ribbed Tank Top
-    (20,"White","S",10),(20,"White","M",8),(20,"White","L",6),
-    (20,"Black","S",9),(20,"Black","M",7),(20,"Black","L",5),
-    (20,"Beige","S",7),(20,"Beige","M",6),(20,"Beige","L",4),
-    # 21: Tailored Trousers
-    (21,"Black","28",6),(21,"Black","30",8),(21,"Black","32",7),(21,"Black","34",4),
-    (21,"Grey","28",5),(21,"Grey","30",7),(21,"Grey","32",6),(21,"Grey","34",3),
-    (21,"Navy","28",4),(21,"Navy","30",6),(21,"Navy","32",5),(21,"Navy","34",2),
-    # 22: Puffer Jacket
-    (22,"Black","S",5),(22,"Black","M",7),(22,"Black","L",6),(22,"Black","XL",4),
-    (22,"Olive","S",4),(22,"Olive","M",5),(22,"Olive","L",4),(22,"Olive","XL",3),
-    (22,"Red","S",3),(22,"Red","M",4),(22,"Red","L",5),(22,"Red","XL",2),
-    # 23: Satin Slip Dress
-    (23,"Champagne","S",4),(23,"Champagne","M",6),(23,"Champagne","L",3),
-    (23,"Black","S",5),(23,"Black","M",7),(23,"Black","L",4),
-    (23,"Dusty Pink","S",6),(23,"Dusty Pink","M",5),(23,"Dusty Pink","L",3),
-    # 24: Windbreaker
-    (24,"Yellow","S",4),(24,"Yellow","M",5),(24,"Yellow","L",4),(24,"Yellow","XL",2),
-    (24,"Blue","S",5),(24,"Blue","M",6),(24,"Blue","L",5),(24,"Blue","XL",3),
-    (24,"Orange","S",3),(24,"Orange","M",4),(24,"Orange","L",3),(24,"Orange","XL",2),
-    # 25: Maxi Skirt
-    (25,"Black","S",6),(25,"Black","M",8),(25,"Black","L",5),
-    (25,"Earth","S",5),(25,"Earth","M",7),(25,"Earth","L",4),
-    # 26: Henley T-Shirt
-    (26,"White","S",7),(26,"White","M",9),(26,"White","L",6),(26,"White","XL",4),
-    (26,"Sage","S",5),(26,"Sage","M",7),(26,"Sage","L",6),(26,"Sage","XL",3),
-    (26,"Rust","S",4),(26,"Rust","M",6),(26,"Rust","L",5),(26,"Rust","XL",2),
-    # 27: Trench Coat
-    (27,"Beige","S",4),(27,"Beige","M",6),(27,"Beige","L",5),
-    (27,"Black","S",3),(27,"Black","M",5),(27,"Black","L",4),
-    # 28: Biker Shorts
-    (28,"Black","S",10),(28,"Black","M",8),(28,"Black","L",6),
-    (28,"Navy","S",7),(28,"Navy","M",6),(28,"Navy","L",5),
-    # 29: Sherpa Fleece Jacket
-    (29,"Brown","S",4),(29,"Brown","M",6),(29,"Brown","L",5),(29,"Brown","XL",3),
-    (29,"Cream","S",5),(29,"Cream","M",7),(29,"Cream","L",6),(29,"Cream","XL",2),
-    # 30: Halter Neck Top
-    (30,"Black","S",8),(30,"Black","M",6),(30,"Black","L",4),
-    (30,"White","S",7),(30,"White","M",5),(30,"White","L",3),
-    (30,"Dusty Rose","S",6),(30,"Dusty Rose","M",5),(30,"Dusty Rose","L",4),
-]
+# ─── 정규화 옵션: 제품당 색상 2개 × 사이즈 2개 = 총 120개 variant ─
+# 일련번호 규칙: P{상품번호:03d}-C{색상번호:02d}-S{사이즈번호:02d}
+# 색상 인덱스: sorted(colors) 기준 C01/C02
+# 사이즈 인덱스: ["M","L"] 기준 S01=M, S02=L
+CANONICAL_VARIANTS: dict = {
+    1:  {"colors": ["Black", "White"],          "sizes": ["M", "L"]},
+    2:  {"colors": ["Black", "Blue"],           "sizes": ["M", "L"]},
+    3:  {"colors": ["Beige", "Navy"],           "sizes": ["M", "L"]},
+    4:  {"colors": ["Black", "Camel"],          "sizes": ["M", "L"]},
+    5:  {"colors": ["Khaki", "Navy"],           "sizes": ["M", "L"]},
+    6:  {"colors": ["Blue", "White"],           "sizes": ["M", "L"]},
+    7:  {"colors": ["Cream", "Grey"],           "sizes": ["M", "L"]},
+    8:  {"colors": ["Black", "Brown"],          "sizes": ["M", "L"]},
+    9:  {"colors": ["Floral", "Navy"],          "sizes": ["M", "L"]},
+    10: {"colors": ["Black", "Olive"],          "sizes": ["M", "L"]},
+    11: {"colors": ["Charcoal", "Ivory"],       "sizes": ["M", "L"]},
+    12: {"colors": ["Black", "Olive"],          "sizes": ["M", "L"]},
+    13: {"colors": ["Burgundy", "Forest"],      "sizes": ["M", "L"]},
+    14: {"colors": ["Black", "Grey"],           "sizes": ["M", "L"]},
+    15: {"colors": ["Dark Blue", "Light Blue"], "sizes": ["M", "L"]},
+    16: {"colors": ["Black", "Navy"],           "sizes": ["M", "L"]},
+    17: {"colors": ["Navy", "White"],           "sizes": ["M", "L"]},
+    18: {"colors": ["Black", "White"],          "sizes": ["M", "L"]},
+    19: {"colors": ["Khaki", "Olive"],          "sizes": ["M", "L"]},
+    20: {"colors": ["Black", "White"],          "sizes": ["M", "L"]},
+    21: {"colors": ["Black", "Grey"],           "sizes": ["M", "L"]},
+    22: {"colors": ["Black", "Olive"],          "sizes": ["M", "L"]},
+    23: {"colors": ["Black", "Champagne"],      "sizes": ["M", "L"]},
+    24: {"colors": ["Blue", "Yellow"],          "sizes": ["M", "L"]},
+    25: {"colors": ["Black", "Earth"],          "sizes": ["M", "L"]},
+    26: {"colors": ["Sage", "White"],           "sizes": ["M", "L"]},
+    27: {"colors": ["Beige", "Black"],          "sizes": ["M", "L"]},
+    28: {"colors": ["Black", "Navy"],           "sizes": ["M", "L"]},
+    29: {"colors": ["Brown", "Cream"],          "sizes": ["M", "L"]},
+    30: {"colors": ["Black", "White"],          "sizes": ["M", "L"]},
+}
 
 # ─── DB 연결 ──────────────────────────────────────────────────
 def get_db() -> sqlite3.Connection:
@@ -214,11 +141,12 @@ def init_db():
         );
 
         CREATE TABLE IF NOT EXISTS product_variants (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            product_id INTEGER NOT NULL,
-            color      TEXT    NOT NULL,
-            size       TEXT    NOT NULL,
-            stock      INTEGER NOT NULL DEFAULT 10,
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id  INTEGER NOT NULL,
+            color       TEXT    NOT NULL,
+            size        TEXT    NOT NULL,
+            stock       INTEGER NOT NULL DEFAULT 0,
+            serial_code TEXT,
             FOREIGN KEY (product_id) REFERENCES products(id)
         );
 
@@ -247,6 +175,7 @@ def init_db():
             product_name TEXT    NOT NULL,
             color        TEXT    NOT NULL,
             size         TEXT    NOT NULL,
+            variant_id   INTEGER,
             FOREIGN KEY (request_id) REFERENCES fitting_requests(id)
         );
     """)
@@ -258,17 +187,61 @@ def init_db():
             [(i, i) for i in range(1, 5)],
         )
 
-    # 상품 30개 + 옵션 시드 (없을 때만)
+    # 상품 30개 시드 (없을 때만) — variants는 migrate_db()에서 처리
     if cur.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 0:
         cur.executemany("INSERT INTO products (id, name, price) VALUES (?, ?, ?)", PRODUCTS)
-        cur.executemany(
-            "INSERT INTO product_variants (product_id, color, size, stock) VALUES (?, ?, ?, ?)",
-            VARIANTS,
-        )
 
     conn.commit()
     conn.close()
     print("[KEEP] DB ready:", DB_PATH)
+
+
+# ─── DB 마이그레이션: serial_code 컬럼 추가 + variants 정규화 ──
+def migrate_db():
+    conn = get_db()
+    cur = conn.cursor()
+
+    # 1. product_variants에 serial_code 컬럼 추가 (이미 있으면 무시)
+    try:
+        cur.execute("ALTER TABLE product_variants ADD COLUMN serial_code TEXT")
+        conn.commit()
+        print("[KEEP] Migration: product_variants.serial_code 컬럼 추가")
+    except sqlite3.OperationalError:
+        pass
+
+    # 2. fitting_request_items에 variant_id 컬럼 추가 (이미 있으면 무시)
+    try:
+        cur.execute("ALTER TABLE fitting_request_items ADD COLUMN variant_id INTEGER")
+        conn.commit()
+        print("[KEEP] Migration: fitting_request_items.variant_id 컬럼 추가")
+    except sqlite3.OperationalError:
+        pass
+
+    # 3. product_variants를 120개(제품당 4개)로 정규화
+    count = cur.execute(
+        "SELECT COUNT(*) FROM product_variants WHERE serial_code IS NOT NULL"
+    ).fetchone()[0]
+
+    if count != 120:
+        cur.execute("DELETE FROM product_variants")
+        rows = []
+        for product_id in sorted(CANONICAL_VARIANTS):
+            config = CANONICAL_VARIANTS[product_id]
+            colors = sorted(config["colors"])  # 알파벳 순 → C01/C02
+            sizes  = config["sizes"]           # ["M","L"] → S01/S02
+            for ci, color in enumerate(colors, start=1):
+                for si, size in enumerate(sizes, start=1):
+                    serial_code = f"P{product_id:03d}-C{ci:02d}-S{si:02d}"
+                    rows.append((product_id, color, size, 0, serial_code))
+        cur.executemany(
+            "INSERT INTO product_variants (product_id, color, size, stock, serial_code) VALUES (?, ?, ?, ?, ?)",
+            rows,
+        )
+        conn.commit()
+        print(f"[KEEP] Migration: product_variants 정규화 완료 ({len(rows)}개)")
+
+    conn.close()
+
 
 # ─── 헬퍼 함수 ────────────────────────────────────────────────
 def get_available_room(cur: sqlite3.Cursor):
@@ -276,10 +249,34 @@ def get_available_room(cur: sqlite3.Cursor):
         "SELECT id, room_number FROM fitting_rooms WHERE status = 'available' ORDER BY room_number LIMIT 1"
     ).fetchone()
 
+def find_variant_id(cur: sqlite3.Cursor, product_id: str, color: str, size: str) -> Optional[int]:
+    """product_id + color + size로 variant_id 조회"""
+    try:
+        row = cur.execute(
+            "SELECT id FROM product_variants WHERE product_id = ? AND color = ? AND size = ? LIMIT 1",
+            (int(product_id), color, size),
+        ).fetchone()
+        return row["id"] if row else None
+    except (ValueError, TypeError):
+        return None
+
 def build_response(cur: sqlite3.Cursor, req) -> dict:
     """fitting_requests 행 + items를 프론트 응답 형태로 변환"""
-    items = cur.execute(
-        "SELECT id, product_id, product_name, color, size FROM fitting_request_items WHERE request_id = ?",
+    items_rows = cur.execute(
+        """SELECT fri.id, fri.product_id, fri.product_name, fri.color, fri.size, fri.variant_id,
+                  COALESCE(
+                      pv1.serial_code,
+                      (SELECT pv2.serial_code FROM product_variants pv2
+                       WHERE pv2.product_id = CAST(
+                           CASE WHEN fri.product_id LIKE 'prod-%'
+                                THEN SUBSTR(fri.product_id, 6)
+                                ELSE fri.product_id
+                           END AS INTEGER)
+                       AND pv2.color = fri.color AND pv2.size = fri.size LIMIT 1)
+                  ) AS serial_code
+           FROM fitting_request_items fri
+           LEFT JOIN product_variants pv1 ON pv1.id = fri.variant_id
+           WHERE fri.request_id = ?""",
         (req["id"],),
     ).fetchall()
 
@@ -290,8 +287,10 @@ def build_response(cur: sqlite3.Cursor, req) -> dict:
             "product_name": i["product_name"],
             "color":        i["color"],
             "size":         i["size"],
+            "variant_id":   i["variant_id"],
+            "serial_code":  i["serial_code"],
         }
-        for i in items
+        for i in items_rows
     ]
 
     first = items_list[0] if items_list else {}
@@ -326,6 +325,7 @@ def build_response(cur: sqlite3.Cursor, req) -> dict:
 @app.on_event("startup")
 def on_startup():
     init_db()
+    migrate_db()
 
 # ─── API 엔드포인트 ────────────────────────────────────────────
 
@@ -361,12 +361,15 @@ def create_request(item: CreateRequestItem):
                 (request_id, customer_number, item.session_id, datetime.now().isoformat()),
             )
 
+        # variant_id 조회
+        variant_id = find_variant_id(cur, item.product_id, item.color, item.size)
+
         # 상품 아이템 추가
         cur.execute(
             """INSERT INTO fitting_request_items
-               (request_id, product_id, product_name, color, size)
-               VALUES (?, ?, ?, ?, ?)""",
-            (request_id, item.product_id, item.product_name, item.color, item.size),
+               (request_id, product_id, product_name, color, size, variant_id)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (request_id, item.product_id, item.product_name, item.color, item.size, variant_id),
         )
 
         conn.commit()
@@ -446,13 +449,14 @@ def create_batch_request(body: BatchRequestBody):
                 (request_id, room_id),
             )
 
-        # 5. 상품 아이템 삽입
+        # 5. 상품 아이템 삽입 (variant_id 포함)
         for item in body.items:
+            variant_id = find_variant_id(cur, item.product_id, item.color, item.size)
             cur.execute(
                 """INSERT INTO fitting_request_items
-                   (request_id, product_id, product_name, color, size)
-                   VALUES (?, ?, ?, ?, ?)""",
-                (request_id, item.product_id, item.product_name, item.color, item.size),
+                   (request_id, product_id, product_name, color, size, variant_id)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (request_id, item.product_id, item.product_name, item.color, item.size, variant_id),
             )
 
         conn.commit()
@@ -567,7 +571,7 @@ def get_fitting_rooms():
 
 @app.get("/api/products")
 def get_products():
-    """상품 목록 (variants 포함)"""
+    """상품 목록 (variants + serial_code 포함)"""
     conn = get_db()
     cur = conn.cursor()
     try:
@@ -575,14 +579,17 @@ def get_products():
         result = []
         for p in products:
             variants = cur.execute(
-                "SELECT color, size, stock FROM product_variants WHERE product_id = ?",
+                "SELECT id, color, size, serial_code FROM product_variants WHERE product_id = ? ORDER BY serial_code",
                 (p["id"],),
             ).fetchall()
             result.append({
                 "id":       p["id"],
                 "name":     p["name"],
                 "price":    p["price"],
-                "variants": [dict(v) for v in variants],
+                "variants": [
+                    {"id": v["id"], "color": v["color"], "size": v["size"], "serial_code": v["serial_code"]}
+                    for v in variants
+                ],
             })
         return {"products": result}
     finally:
@@ -591,7 +598,7 @@ def get_products():
 
 @app.get("/api/products/{product_id}")
 def get_product(product_id: int):
-    """단일 상품 상세 (variants 포함)"""
+    """단일 상품 상세 (variants + serial_code 포함)"""
     conn = get_db()
     cur = conn.cursor()
     try:
@@ -599,7 +606,7 @@ def get_product(product_id: int):
         if not p:
             raise HTTPException(status_code=404, detail="Product not found")
         variants = cur.execute(
-            "SELECT color, size FROM product_variants WHERE product_id = ? ORDER BY color, size",
+            "SELECT id, color, size, serial_code FROM product_variants WHERE product_id = ? ORDER BY serial_code",
             (product_id,),
         ).fetchall()
         return {
@@ -608,7 +615,10 @@ def get_product(product_id: int):
             "price":      p["price"],
             "image_url":  None,
             "category":   None,
-            "variants":   [{"color": v["color"], "size": v["size"]} for v in variants],
+            "variants":   [
+                {"id": v["id"], "color": v["color"], "size": v["size"], "serial_code": v["serial_code"]}
+                for v in variants
+            ],
         }
     finally:
         conn.close()

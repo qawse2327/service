@@ -28,6 +28,8 @@ interface ApiItem {
   product_name: string;
   color: string;
   size: string;
+  variant_id?: number;
+  serial_code?: string;
 }
 
 interface ApiRequestResponse {
@@ -66,6 +68,8 @@ function mapItem(i: ApiItem): FittingRequestItem {
     productName: i.product_name,
     color:       i.color,
     size:        i.size,
+    variantId:   i.variant_id ?? undefined,
+    serialCode:  i.serial_code ?? undefined,
   };
 }
 
@@ -101,11 +105,11 @@ function mapCreateBody(body: CreateSingleRequestBody): ApiCreateBody {
 
 // ─── 상품 단건 조회 (IRequestService 외 독립 함수) ────────────────
 
-interface ApiProductVariant { color: string; size: string; }
+interface ApiProductVariant { color: string; size: string; serial_code?: string; }
 interface ApiProduct { id: number; name: string; price: number; image_url: string | null; category: string | null; variants: ApiProductVariant[]; }
 
 function mapProductVariant(v: ApiProductVariant): ProductVariant {
-  return { color: v.color, size: v.size };
+  return { color: v.color, size: v.size, serialCode: v.serial_code ?? undefined };
 }
 
 function mapProduct(p: ApiProduct): Product {

@@ -12,7 +12,12 @@
       "Bash(curl -s \"http://127.0.0.1:8000/api/requests\")",
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('requests count:', len\\(d['requests']\\)\\)\")",
       "Bash(python -c \"import ast, sys; ast.parse\\(open\\('fitting_service.py'\\).read\\(\\)\\); print\\('syntax OK'\\)\")",
-      "Bash(python -c \"import ast; ast.parse\\(open\\('fitting_service.py', encoding='utf-8'\\).read\\(\\)\\); print\\('syntax OK'\\)\")"
+      "Bash(python -c \"import ast; ast.parse\\(open\\('fitting_service.py', encoding='utf-8'\\).read\\(\\)\\); print\\('syntax OK'\\)\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\USER\\\\service\\\\jyking4\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(python *)",
+      "Bash(npx vite *)"
     ]
   }
 }

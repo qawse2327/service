@@ -42,12 +42,19 @@ const resources = {
       "Start Preparing": "Start Preparing",
       "Mark as Ready": "Mark as Ready",
       "Complete": "Complete",
+      "Requested Item": "Requested Item",
+      "Color": "Color",
+      "Size": "Size",
+      "Fitting Room": "Fitting Room",
 
       // Statuses
       "PENDING": "PENDING",
       "PREPARING": "PREPARING",
       "READY": "READY",
-      "COMPLETED": "COMPLETED"
+      "COMPLETED": "COMPLETED",
+      "pending": "REQUESTED",
+      "assigned": "PREPARING",
+      "completed": "COMPLETED"
     }
   },
   ko: {
@@ -96,12 +103,19 @@ const resources = {
       "ago": "전",
       "Start Preparing": "상품 준비 시작",
       "Mark as Ready": "준비 완료(고객 호출)",
-      "Complete": "수령 완료",
+      "Complete": "전달 완료",
+      "Requested Item": "요청 상품",
+      "Color": "색상",
+      "Size": "사이즈",
+      "Fitting Room": "피팅룸",
 
       "PENDING": "대기중",
       "PREPARING": "준비중",
       "READY": "준비완료",
-      "COMPLETED": "수령완료"
+      "COMPLETED": "완료",
+      "pending": "접수됨",
+      "assigned": "준비중",
+      "completed": "전달완료"
     }
   }
 };
