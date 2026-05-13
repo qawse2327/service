@@ -1,17 +1,11 @@
 // ============================================================
-// KEEP — 공통 데이터 타입 정의 (Request Layer)
-//
-// ⚠️ 백엔드 구조: 요청 1개 = 상품 1개
-//    UI에서 여러 상품을 태깅해도 각 상품별로 개별 요청 생성
+// KEEP — 공통 데이터 타입 정의
 // ============================================================
 
 export type FittingStatus = 'pending' | 'assigned' | 'completed';
 
-// --------------------------------------------------------------
-// UI 레이어 타입 — 고객 화면에서 태깅 시 사용
-// --------------------------------------------------------------
-
-/** NFC 태깅 시 선택된 단일 상품 (UI 내부 상태용) */
+// ─── UI 레이어 ─────────────────────────────────────────────
+/** NFC 태깅 시 선택된 단일 상품 (고객 화면 내부 상태용) */
 export interface TaggedProduct {
   productId: string;
   productName: string;
@@ -19,36 +13,51 @@ export interface TaggedProduct {
   size: string;
 }
 
-// --------------------------------------------------------------
-// API 레이어 타입 — 백엔드 연동 기준 (요청 1개 = 상품 1개)
-// --------------------------------------------------------------
+// ─── API 레이어 ────────────────────────────────────────────
 
-/**
- * FittingRequest — 단일 피팅 요청 (백엔드 DB 구조 기준)
- * products 배열이 아닌 단일 상품 필드로 구성
- */
-export interface FittingRequest {
-  requestId: string;
-  productId: string;       // 단일 상품 ID
-  productName: string;     // 단일 상품명
-  color: string;           // 선택 색상
-  size: string;            // 선택 사이즈
-  fittingRoomId: string | null;
-  status: FittingStatus;
-  requestTime: number;     // Unix timestamp (ms) — API: ISO 8601 string으로 변환 필요
-  sessionId: string;       // 같은 태깅 세션에서 생성된 요청들을 묶는 ID
+/** 피팅 요청 내 개별 상품 아이템 (fitting_request_items 행) */
+export interface FittingRequestItem {
+  id: number;
+  productId: string;
+  productName: string;
+  color: string;
+  size: string;
 }
 
 /**
- * CreateSingleRequestBody — POST /api/requests 바디 (상품 1개)
- * 고객이 상품 n개 태깅 → n번 이 타입으로 호출
+ * FittingRequest — 세션 단위 피팅 요청 (fitting_requests 행)
+ * 한 세션에 상품 여러 개가 있을 수 있으며 items[]에 담김.
+ * productId/productName/color/size는 items[0] 기반 호환 필드.
  */
-export type CreateSingleRequestBody = Omit<FittingRequest, 'requestId' | 'requestTime'>;
+export interface FittingRequest {
+  requestId: string;
+  sessionId: string;
+  customerNumber: number | null;
+  fittingRoomId: string | null;
+  roomNumber: number | null;   // fitting_rooms.room_number (고객에게 보여주는 번호)
+  status: FittingStatus;
+  requestTime: number;         // Unix ms (ISO 8601 → 변환)
+  completedAt: number | null;
+  items: FittingRequestItem[];
+  // items[0] 호환 필드 (StaffApp/AdminApp 단일 상품 참조용)
+  productId: string;
+  productName: string;
+  color: string;
+  size: string;
+}
 
-/**
- * @deprecated 구버전 호환용 — 새 코드에서는 CreateSingleRequestBody 사용
- * products 배열 기반의 구 타입. useRequests.createRequests()가 내부에서 분기 처리.
- */
+/** POST /api/requests 요청 바디 (상품 1개) */
+export interface CreateSingleRequestBody {
+  productId: string;
+  productName: string;
+  color: string;
+  size: string;
+  fittingRoomId: string | null;
+  status: FittingStatus;
+  sessionId: string;
+}
+
+/** UI 진입점 — 태깅된 상품 배열 + 세션 정보 */
 export interface CreateFittingRequestBody {
   products: TaggedProduct[];
   fittingRoomId: string | null;
@@ -56,17 +65,47 @@ export interface CreateFittingRequestBody {
   sessionId: string;
 }
 
-/** PATCH /api/requests/:id — 상태 변경 바디 */
+/** PATCH /api/requests/:id 바디 */
 export interface UpdateStatusBody {
   status: FittingStatus;
 }
 
-/** GET /api/requests — 목록 응답 */
+/** GET /api/requests 응답 */
 export interface GetRequestsResponse {
   requests: FittingRequest[];
 }
 
-/** GET /admin/stats — 관리자 통계 응답 */
+/** GET /api/products/{id} — 상품 옵션 단위 */
+export interface ProductVariant {
+  color: string;
+  size: string;
+}
+
+/** GET /api/products/{id} 응답 */
+export interface Product {
+  id: number;
+  name: string;
+  price: number;
+  imageUrl: string | null;
+  category: string | null;
+  variants: ProductVariant[];
+}
+
+/** POST /api/requests/batch — 일괄 요청의 상품 단위 */
+export interface BatchFittingItem {
+  productId: string;
+  productName: string;
+  color: string;
+  size: string;
+}
+
+/** POST /api/requests/batch 요청 바디 */
+export interface BatchFittingRequestBody {
+  sessionId: string;
+  items: BatchFittingItem[];
+}
+
+/** GET /admin/stats 응답 */
 export interface AdminStats {
   total: number;
   pending: number;

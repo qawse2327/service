@@ -19,9 +19,8 @@ import type {
 /**
  * IRequestService
  *
- * 구현체:
- *  - mockRequestService (src/services/mockRequestService.ts) — 현재 사용
- *  - apiRequestService  (src/services/apiRequestService.ts)  — 백엔드 연동 시 교체
+ * 구현체: apiRequestService (src/services/apiRequestService.ts)
+ * 진입점: src/services/index.ts
  */
 export interface IRequestService {
   /**

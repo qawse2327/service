@@ -1,431 +1,502 @@
-import React, { useState, useEffect } from 'react';
-import { Shirt, Trash2, CheckCircle, PlusCircle, X, Layout, List } from 'lucide-react';
-import { mockProducts } from '../../mock/products';
-import { useRequests } from '../../hooks/useRequests';
-import { ThemeToggle } from '../../components/ThemeToggle';
-import { LanguageToggle } from '../../components/LanguageToggle';
-import { useTranslation } from 'react-i18next';
-import type { TaggedProduct } from '../../types/request';
+import { useState, useEffect, useMemo, type MouseEvent } from 'react';
+import { Heart, ArrowLeft, Shirt, CheckCircle } from 'lucide-react';
+import type { Product } from '../../types/request';
+import { getProduct, createBatchRequest } from '../../services/apiRequestService';
 
-/** 세션 ID를 가져오거나 신규 생성합니다 */
-const getOrCreateSessionId = (): string => {
-  const existing = localStorage.getItem('keep-session-id');
-  if (existing) return existing;
+// ─── localStorage keys ──────────────────────────────────────────
+const KEY_TAGGED     = 'keep_tagged_products';
+const KEY_PENDING    = 'keep_pending_fitting_items';
+const KEY_SESSION    = 'keep_session_id';
+const KEY_EXPIRES    = 'keep_session_expires_at';
+const KEY_ASSIGNMENT = 'keep_customer_assignment';
+
+const SESSION_TTL = 60 * 60 * 1000; // 1시간
+
+// ─── 로컬 타입 ──────────────────────────────────────────────────
+interface PendingItem {
+  productId: string;
+  productName: string;
+  color: string;
+  size: string;
+}
+
+interface CustomerAssignment {
+  customerNumber: number;
+  roomNumber: number | null;
+}
+
+// ─── 헬퍼 (컴포넌트 외부) ──────────────────────────────────────
+function loadJson<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function clearSessionStorage(): void {
+  [KEY_SESSION, KEY_EXPIRES, KEY_ASSIGNMENT, KEY_PENDING, KEY_TAGGED].forEach(k =>
+    localStorage.removeItem(k)
+  );
+}
+
+function createNewSession(): string {
   const newId = `session-${Math.random().toString(36).substring(2, 9)}`;
-  localStorage.setItem('keep-session-id', newId);
+  localStorage.setItem(KEY_SESSION, newId);
+  localStorage.setItem(KEY_EXPIRES, String(Date.now() + SESSION_TTL));
   return newId;
-};
+}
 
+/**
+ * 세션 유효성 검사 — 마운트 시 1회 실행.
+ * 만료됐거나 없으면 localStorage 전체 초기화 후 새 세션 생성.
+ * 이 함수는 useState 초기화 직전에 실행되므로
+ * 초기화 이후 loadJson은 항상 유효한 상태를 읽는다.
+ */
+function checkAndInitSession(): void {
+  const sessionId  = localStorage.getItem(KEY_SESSION);
+  const expiresAt  = localStorage.getItem(KEY_EXPIRES);
+  const now        = Date.now();
+
+  if (sessionId && expiresAt && now < parseInt(expiresAt, 10)) {
+    return; // 유효한 세션 — 아무것도 하지 않음
+  }
+
+  // 만료됐거나 없음 → 초기화 후 새 세션
+  clearSessionStorage();
+  createNewSession();
+}
+
+/** 피팅 요청 시 호출 — session_id를 반환 (절대 새로 만들지 않음) */
+function getSessionId(): string {
+  const existing = localStorage.getItem(KEY_SESSION);
+  if (existing) return existing;
+  return createNewSession(); // localStorage가 수동 삭제된 극단적 케이스만 처리
+}
+
+const CARD_BG = ['#f0e6d3','#d3e6f0','#d3f0e6','#f0d3e6','#e6f0d3','#f0ead3','#e6d3f0','#d3dff0','#f0d3d3'];
+
+// ────────────────────────────────────────────────────────────────
 export const CustomerApp = () => {
-  const { t } = useTranslation();
-  // useRequests hook — service 계층을 통해 요청 생성/조회
-  const { createRequests } = useRequests();
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  
-  const [taggedItems, setTaggedItems] = useState<TaggedProduct[]>([]);
-  const [assignedRoom, setAssignedRoom] = useState<string | null>(null);
-  
-  const [viewMode, setViewMode] = useState<'carousel' | 'list'>('carousel');
+  // ─── 세션 유효성 검사 (마운트 1회, 상태 초기화보다 먼저 실행) ──
+  const [taggedProducts, setTaggedProducts] = useState<Product[]>(() => {
+    checkAndInitSession(); // ← 여기서 실행되므로 이후 loadJson은 유효한 상태를 읽음
+    return loadJson(KEY_TAGGED, []);
+  });
+  const [pendingItems,   setPendingItems]   = useState<PendingItem[]>(() => loadJson(KEY_PENDING, []));
+  const [assignment,     setAssignment]     = useState<CustomerAssignment | null>(() => loadJson(KEY_ASSIGNMENT, null));
+
+  // ─── 뷰 상태 ─────────────────────────────────────────────────
+  const [view,          setView]          = useState<'list' | 'detail'>('list');
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const [detailColor,   setDetailColor]   = useState<string | null>(null);
+  const [detailSize,    setDetailSize]    = useState<string | null>(null);
+
+  // ─── 요청/피드백 상태 ─────────────────────────────────────────
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [showSuccess,  setShowSuccess]  = useState(false);
+  const [successData,  setSuccessData]  = useState<CustomerAssignment | null>(null);
+  const [toast,        setToast]        = useState<string | null>(null);
 
-  // Carousel State
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  // ─── toast ────────────────────────────────────────────────────
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
 
+  // ─── URL ?productId= → 상품 조회 후 태그 목록 추가 ────────────
   useEffect(() => {
-    // Prevent scrolling when swiping vertically heavily in carousel
-    if (viewMode === 'carousel' && dragOffset.y < -20) {
-      document.body.style.overflow = 'hidden';
+    const paramId = new URLSearchParams(window.location.search).get('productId');
+    if (!paramId) return;
+    const num = parseInt(paramId, 10);
+    if (isNaN(num)) return;
+
+    const existing: Product[] = loadJson(KEY_TAGGED, []);
+    if (existing.some(p => p.id === num)) return;
+
+    getProduct(num)
+      .then(product => {
+        setTaggedProducts(curr => {
+          if (curr.some(p => p.id === num)) return curr;
+          const updated = [...curr, product];
+          localStorage.setItem(KEY_TAGGED, JSON.stringify(updated));
+          return updated;
+        });
+      })
+      .catch(() => showToast('상품 정보를 불러올 수 없습니다.'));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── pendingItems 저장 ────────────────────────────────────────
+  const savePending = (items: PendingItem[]) => {
+    setPendingItems(items);
+    localStorage.setItem(KEY_PENDING, JSON.stringify(items));
+  };
+
+  // ─── 세션 초기화 (개발용) ─────────────────────────────────────
+  const handleResetSession = () => {
+    clearSessionStorage();
+    createNewSession();
+
+    // React 상태 초기화
+    setTaggedProducts([]);
+    setPendingItems([]);
+    setAssignment(null);
+    setView('list');
+    setDetailProduct(null);
+    setDetailColor(null);
+    setDetailSize(null);
+    setIsSubmitting(false);
+    setShowSuccess(false);
+    setSuccessData(null);
+
+    // URL에 productId가 있으면 해당 상품을 다시 로딩
+    const paramId = new URLSearchParams(window.location.search).get('productId');
+    if (paramId) {
+      const num = parseInt(paramId, 10);
+      if (!isNaN(num)) {
+        getProduct(num)
+          .then(product => {
+            setTaggedProducts([product]);
+            localStorage.setItem(KEY_TAGGED, JSON.stringify([product]));
+          })
+          .catch(() => {});
+      }
+    }
+  };
+
+  // ─── 상세 화면 열기/닫기 ───────────────────────────────────────
+  const openDetail = (product: Product) => {
+    const prev = pendingItems.find(i => i.productId === String(product.id));
+    setDetailProduct(product);
+    setDetailColor(prev?.color ?? null);
+    setDetailSize(prev?.size ?? null);
+    setView('detail');
+  };
+
+  const closeDetail = () => {
+    setView('list');
+    setDetailProduct(null);
+    setDetailColor(null);
+    setDetailSize(null);
+  };
+
+  // ─── 메인 카드 하트 클릭 ─────────────────────────────────────
+  const handleCardHeart = (product: Product, e: MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    const hasPending = pendingItems.some(i => i.productId === String(product.id));
+    if (hasPending) {
+      savePending(pendingItems.filter(i => i.productId !== String(product.id)));
     } else {
-      document.body.style.overflow = '';
+      openDetail(product);
     }
-    return () => { document.body.style.overflow = ''; };
-  }, [dragOffset.y, viewMode]);
-
-  const showToast = (message: string) => {
-    setToastMessage(message);
-    setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleTagProduct = (productId: string) => {
-    if (isSuccess) {
-      setIsSuccess(false);
-      setAssignedRoom(null);
+  // ─── 색상 · 사이즈는 독립 선택 ───────────────────────────────
+  const detailColors = useMemo(() => {
+    if (!detailProduct) return [];
+    return [...new Set(detailProduct.variants.map(v => v.color))];
+  }, [detailProduct]);
+
+  const detailSizes = useMemo(() => {
+    if (!detailProduct) return [];
+    return [...new Set(detailProduct.variants.map(v => v.size))];
+  }, [detailProduct]);
+
+  // ─── 상세 화면 하트 상태 ─────────────────────────────────────
+  const isDetailHearted = useMemo(() => {
+    if (!detailProduct || !detailColor || !detailSize) return false;
+    return pendingItems.some(
+      i => i.productId === String(detailProduct.id) && i.color === detailColor && i.size === detailSize
+    );
+  }, [detailProduct, detailColor, detailSize, pendingItems]);
+
+  // ─── 상세 화면 하트 토글 ─────────────────────────────────────
+  const handleDetailHeart = () => {
+    if (!detailProduct || !detailColor || !detailSize) return;
+    const pid = String(detailProduct.id);
+    if (isDetailHearted) {
+      savePending(pendingItems.filter(i => i.productId !== pid));
+    } else {
+      const filtered = pendingItems.filter(i => i.productId !== pid);
+      savePending([...filtered, {
+        productId:   pid,
+        productName: detailProduct.name,
+        color:       detailColor,
+        size:        detailSize,
+      }]);
     }
-    const product = mockProducts.find(p => p.id === productId);
-    if (!product) return;
-
-    setTaggedItems(prev => {
-      const newArr = [...prev, {
-        productId: product.id,
-        productName: product.name,
-        color: product.colors[0],
-        size: product.sizes[0],
-      }];
-      if (viewMode === 'carousel') {
-        setCurrentIndex(newArr.length - 1);
-      }
-      return newArr;
-    });
-    showToast(t('Product Tagged!'));
   };
 
-  const updateTaggedItem = (index: number, key: 'color' | 'size', value: string) => {
-    setTaggedItems(prev => prev.map((item, i) => i === index ? { ...item, [key]: value } : item));
-  };
-
-  const removeTaggedItem = (index: number) => {
-    setTaggedItems(prev => {
-      const newItems = prev.filter((_, i) => i !== index);
-      if (currentIndex >= newItems.length && newItems.length > 0) {
-        setCurrentIndex(newItems.length - 1);
-      } else if (newItems.length === 0) {
-        setCurrentIndex(0);
-      }
-      return newItems;
-    });
-  };
-
+  // ─── 피팅 요청 전송 ───────────────────────────────────────────
   const handleFittingRequest = async () => {
-    if (taggedItems.length === 0 || isSubmitting) return;
-
+    if (pendingItems.length === 0 || isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const sessionId = getOrCreateSessionId();
+      const sessionId = getSessionId(); // session_id 유지
+      const result = await createBatchRequest({ sessionId, items: pendingItems });
 
-      // ⚠️ 백엔드 구조: 요청 1개 = 상품 1개
-      const results = await createRequests({
-        products: [...taggedItems],
-        fittingRoomId: null, // 초기 생성 시 null (백엔드 수동 배정용)
-        status: 'pending',
-        sessionId,
-      });
+      const newAssignment: CustomerAssignment = {
+        customerNumber: result.customerNumber ?? 0,
+        roomNumber:     result.roomNumber,
+      };
 
-      // 첫 번째 요청의 피팅룸을 UI에 표시
-      const firstRoom = results[0]?.fittingRoomId || null;
-      setAssignedRoom(firstRoom);
-      setIsSuccess(true);
-      setTaggedItems([]);
-      setCurrentIndex(0);
-      showToast(t('Fitting request submitted!'));
-    } catch (error) {
-      console.error('Fitting request failed:', error);
-      showToast(t('Error: Backend connection failed.'));
+      setAssignment(newAssignment);
+      localStorage.setItem(KEY_ASSIGNMENT, JSON.stringify(newAssignment));
+      savePending([]);
+
+      setSuccessData(newAssignment);
+      setShowSuccess(true);
+    } catch (err) {
+      console.error('Fitting request failed:', err);
+      const msg = err instanceof Error && err.message.includes('409')
+        ? '현재 사용 가능한 피팅룸이 없습니다.'
+        : '피팅 요청에 실패했습니다. 다시 시도해주세요.';
+      showToast(msg);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Touch Handlers for Carousel
-  const handleStart = (e: React.TouchEvent | React.MouseEvent) => {
-    if (viewMode !== 'carousel') return;
-    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
-    setTouchStart({ x: clientX, y: clientY });
-    setDragOffset({ x: 0, y: 0 });
-  };
-  
-  const handleMove = (e: React.TouchEvent | React.MouseEvent) => {
-    if (!touchStart || viewMode !== 'carousel') return;
-    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
-    
-    setDragOffset({
-      x: clientX - touchStart.x,
-      y: clientY - touchStart.y
-    });
-  };
-
-  const handleEnd = () => {
-    if (!touchStart || viewMode !== 'carousel') return;
-    
-    if (dragOffset.y < -80 && Math.abs(dragOffset.y) > Math.abs(dragOffset.x)) {
-      removeTaggedItem(currentIndex);
-    } 
-    else if (dragOffset.x > 60 && currentIndex > 0) {
-      setCurrentIndex(curr => curr - 1);
-    } 
-    else if (dragOffset.x < -60 && currentIndex < taggedItems.length - 1) {
-      setCurrentIndex(curr => curr + 1);
-    }
-    
-    setTouchStart(null);
-    setDragOffset({ x: 0, y: 0 });
-  };
+  // ────────────────────────────────────────────────────────────────
+  // 렌더링
+  // ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="app-container" style={{ padding: '1rem', paddingBottom: '100px' }}>
-      <div className="flex justify-between items-center mb-4">
+    <div style={{ maxWidth: '480px', margin: '0 auto', minHeight: '100vh', background: 'var(--bg-color)', position: 'relative' }}>
+
+      {/* ─── 앱 헤더 ─────────────────────────────────────────────── */}
+      <div style={{
+        padding: '0.9rem 1rem 0.7rem',
+        borderBottom: '1px solid var(--border)',
+        position: 'sticky', top: 0,
+        background: 'var(--bg-color)', zIndex: 5,
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+      }}>
         <div>
-          <h1 className="text-2xl font-bold">{t('KEEP')}</h1>
-          <p className="text-xs text-muted mt-1">{t('NFC Tagging System')}</p>
+          <span style={{ fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.5px' }}>KEEP</span>
+          <div style={{ marginTop: '0.3rem', fontSize: '0.82rem', fontWeight: 600, color: assignment ? 'var(--primary)' : 'var(--text-muted)' }}>
+            {assignment
+              ? `고객번호 ${assignment.customerNumber}번${assignment.roomNumber != null ? ` · 피팅룸 ${assignment.roomNumber}번` : ''}`
+              : '고객번호: 요청 전'}
+          </div>
         </div>
-        <div className="flex gap-2 items-center">
-          <ThemeToggle />
-          <LanguageToggle />
-        </div>
+
+        {/* 개발용 세션 초기화 버튼 */}
+        <button
+          onClick={handleResetSession}
+          style={{
+            marginTop: '0.25rem',
+            padding: '0.25rem 0.6rem',
+            fontSize: '0.7rem',
+            color: 'var(--text-muted)',
+            background: 'var(--surface-hover)',
+            border: '1px solid var(--border)',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontFamily: 'monospace',
+            lineHeight: 1.4,
+            flexShrink: 0,
+          }}
+        >
+          세션 초기화
+        </button>
       </div>
 
-      {isSuccess && (
-        <div className="card my-4 animate-slide-in" style={{ backgroundColor: 'var(--primary)', color: 'white', padding: '2rem 1rem', textAlign: 'center', borderRadius: '1.5rem' }}>
-          <CheckCircle size={48} style={{ margin: '0 auto', marginBottom: '16px' }} />
-          <h2 className="text-2xl font-bold mb-2">{t('Fitting Request Received!')}</h2>
-          {assignedRoom ? (
-            <p className="text-lg">{t('Please go to Fitting Room')} <strong style={{ fontSize: '1.5em', margin: '0 0.2em' }}>{assignedRoom}</strong></p>
-          ) : (
-            <p className="text-lg">{t('Please wait for a moment.')}<br/>{t('Staff will assign a room soon.')}</p>
-          )}
-          <button 
-            className="btn btn-secondary mt-6" 
-            style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', border: 'none' }}
-            onClick={() => setIsSuccess(false)}
-          >
-            {t('Close')}
-          </button>
-        </div>
-      )}
-
-      {!assignedRoom && (
-        <div className="mb-4 text-center pb-2 border-b" style={{ borderColor: 'var(--border)' }}>
-          <h2 className="text-sm font-semibold mb-3 flex items-center justify-center gap-2 text-muted">
-            <PlusCircle size={16} />
-            {t('Mock NFC Tagging (Tap to simulate)')}
-          </h2>
-          <div className="mock-nfc-header justify-center" style={{ flexWrap: 'wrap' }}>
-            {mockProducts.map(product => (
-              <button 
-                key={product.id}
-                className="mock-nfc-chip"
-                onClick={() => handleTagProduct(product.id)}
-              >
-                <PlusCircle size={16} color="var(--primary)" />
-                {product.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Main Tagged Items Display */}
-      {!assignedRoom && taggedItems.length > 0 && (
-        <div className="animate-slide-in flex-col items-center w-full">
-          
-          {/* Header & View Toggle */}
-          <div className="flex justify-between items-center w-full px-2 mb-2">
-            <span className="text-muted text-sm font-medium">
-              {t('Tagged Products')} ({taggedItems.length})
-            </span>
-            <div className="view-toggle">
-              <button 
-                className={viewMode === 'carousel' ? 'active' : ''} 
-                onClick={() => setViewMode('carousel')}
-              >
-                <Layout size={16} />
-              </button>
-              <button 
-                className={viewMode === 'list' ? 'active' : ''} 
-                onClick={() => setViewMode('list')}
-              >
-                <List size={16} />
-              </button>
+      {/* ─── 메인: 태그된 상품 카드 그리드 ───────────────────────── */}
+      {view === 'list' && (
+        <div style={{ padding: '1rem', paddingBottom: '90px' }}>
+          {taggedProducts.length === 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '420px', color: 'var(--text-muted)', textAlign: 'center' }}>
+              <Shirt size={72} style={{ opacity: 0.18, marginBottom: '1.25rem' }} />
+              <p style={{ fontSize: '1.05rem', fontWeight: 500 }}>상품 태그를 스캔해주세요.</p>
             </div>
-          </div>
-
-          {/* Carousel View */}
-          {viewMode === 'carousel' && (
-            <>
-              <div 
-                className="mobile-carousel-container"
-                onTouchStart={handleStart}
-                onTouchMove={handleMove}
-                onTouchEnd={handleEnd}
-                onMouseDown={handleStart}
-                onMouseMove={touchStart ? handleMove : undefined}
-                onMouseUp={handleEnd}
-                onMouseLeave={handleEnd}
-              >
-                <div 
-                  className="carousel-track"
-                  style={{ 
-                    transform: `translateX(calc(-${currentIndex * 82}% + 9% + ${dragOffset.x}px))`,
-                    transition: touchStart ? 'none' : 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)'
-                  }}
-                >
-                  {taggedItems.map((item, idx) => {
-                    const productDef = mockProducts.find(p => p.id === item.productId)!;
-                    const isCurrent = idx === currentIndex;
-                    const isSwipingUp = isCurrent && dragOffset.y < 0;
-                    
-                    return (
-                      <div className="carousel-card-wrapper" key={`${item.productId}-${idx}`}>
-                        <div 
-                          className="toss-card" 
-                          style={{
-                            transform: isSwipingUp 
-                              ? `translateY(${dragOffset.y}px) scale(${1 - Math.abs(dragOffset.y)/2000})` 
-                              : (!isCurrent ? 'scale(0.88)' : 'scale(1)'),
-                            opacity: isSwipingUp ? 1 - Math.abs(dragOffset.y)/300 : (!isCurrent ? 0.4 : 1),
-                            transition: touchStart ? 'none' : 'all 0.4s cubic-bezier(0.25, 1, 0.5, 1)'
-                          }}
-                        >
-                          <div className="toss-img-wrapper cursor-pointer">
-                            <img src={productDef.imageUrl} alt={item.productName} draggable="false" />
-                            <button 
-                              className="toss-dismiss-hint" 
-                              onClick={(e) => { e.stopPropagation(); removeTaggedItem(idx); }}
-                            >
-                              <X size={20} />
-                            </button>
-                            
-                            {isCurrent && dragOffset.y < -30 && (
-                              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,0,0,0.2)', color: 'white', fontWeight: 'bold', fontSize: '1.2rem', backdropFilter: 'blur(2px)' }}>
-                                <Trash2 size={32} />
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div className="toss-options" onClick={(e) => e.stopPropagation()}>
-                            <div className="text-center">
-                              <h3 className="text-lg font-bold">{item.productName}</h3>
-                              <p className="text-xs text-muted mt-1">
-                                {t('Swipe left/right to browse, up to dismiss')}
-                              </p>
-                            </div>
-                            
-                            <div className="text-center">
-                              <div className="flex flex-wrap justify-center gap-1.5 mb-2">
-                                {productDef.colors.map(c => (
-                                  <button 
-                                    key={c}
-                                    onClick={() => updateTaggedItem(idx, 'color', c)}
-                                    className={`option-btn ${item.color === c ? 'selected' : ''}`}
-                                    style={{ padding: '0.4rem 0.8rem' }}
-                                  >
-                                    {c}
-                                  </button>
-                                ))}
-                              </div>
-
-                              <div className="flex flex-wrap justify-center gap-1.5">
-                                {productDef.sizes.map(s => (
-                                  <button 
-                                    key={s}
-                                    onClick={() => updateTaggedItem(idx, 'size', s)}
-                                    className={`option-btn ${item.size === s ? 'selected' : ''}`}
-                                    style={{ padding: '0.4rem 0.8rem' }}
-                                  >
-                                    {s}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="indicator-dots">
-                {taggedItems.map((_, idx) => (
-                  <div key={idx} className={`dot ${idx === currentIndex ? 'active' : ''}`} />
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* List View */}
-          {viewMode === 'list' && (
-            <div className="list-view-container w-full">
-              {taggedItems.map((item, idx) => {
-                const productDef = mockProducts.find(p => p.id === item.productId)!;
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              {taggedProducts.map(product => {
+                const hearted     = pendingItems.some(i => i.productId === String(product.id));
+                const pendingItem = pendingItems.find(i => i.productId === String(product.id));
+                const bg          = CARD_BG[product.id % CARD_BG.length];
                 return (
-                  <div key={`${item.productId}-${idx}`} className="list-card">
-                    <img src={productDef.imageUrl} alt={item.productName} />
-                    <div className="list-card-content">
-                      <div className="flex justify-between items-start">
-                        <h3 className="font-bold">{item.productName}</h3>
-                        <button className="text-muted hover:text-red-500" onClick={() => removeTaggedItem(idx)}>
-                          <X size={18} />
-                        </button>
-                      </div>
-                      
-                      <div className="flex flex-col gap-2 mt-1">
-                        <div className="flex gap-1.5 flex-wrap">
-                          {productDef.colors.map(c => (
-                            <button 
-                              key={c}
-                              onClick={() => updateTaggedItem(idx, 'color', c)}
-                              className={`option-btn ${item.color === c ? 'selected' : ''}`}
-                              style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}
-                            >
-                              {c}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="flex gap-1.5 flex-wrap">
-                          {productDef.sizes.map(s => (
-                            <button 
-                              key={s}
-                              onClick={() => updateTaggedItem(idx, 'size', s)}
-                              className={`option-btn ${item.size === s ? 'selected' : ''}`}
-                              style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}
-                            >
-                              {s}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                  <div
+                    key={product.id}
+                    onClick={() => openDetail(product)}
+                    style={{ borderRadius: '12px', overflow: 'hidden', background: 'var(--surface)', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
+                  >
+                    <div style={{ height: '150px', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                      <Shirt size={52} style={{ opacity: 0.35 }} />
+                      <button
+                        onClick={(e) => handleCardHeart(product, e)}
+                        style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(255,255,255,0.88)', border: 'none', borderRadius: '50%', width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}
+                      >
+                        <Heart size={17} fill={hearted ? '#ef4444' : 'none'} color={hearted ? '#ef4444' : '#888'} />
+                      </button>
+                    </div>
+                    <div style={{ padding: '0.55rem 0.7rem 0.7rem' }}>
+                      <p style={{ fontWeight: 600, fontSize: '0.82rem', lineHeight: 1.35, marginBottom: '0.2rem', color: 'var(--text-primary)' }}>{product.name}</p>
+                      <p style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--primary)' }}>{product.price.toLocaleString()}원</p>
+                      {hearted && pendingItem && (
+                        <p style={{ fontSize: '0.72rem', color: '#ef4444', marginTop: '0.25rem', fontWeight: 600 }}>
+                          {pendingItem.color} / {pendingItem.size}
+                        </p>
+                      )}
                     </div>
                   </div>
                 );
               })}
             </div>
           )}
-
         </div>
       )}
 
-      {/* Empty State */}
-      {!assignedRoom && taggedItems.length === 0 && (
-        <div className="flex flex-col items-center justify-center p-8 text-center text-muted" style={{ minHeight: '400px' }}>
-          <Shirt size={64} style={{ opacity: 0.2, marginBottom: '20px' }} />
-          <p className="text-lg font-medium">{t('No products tagged yet.')}</p>
-          <p className="text-sm mt-2">{t('Tap a product above to tag it.')}</p>
+      {/* ─── 상세 화면 ──────────────────────────────────────────── */}
+      {view === 'detail' && detailProduct && (
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--bg-color)', zIndex: 20, overflowY: 'auto', paddingBottom: '80px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1rem', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--bg-color)', zIndex: 1 }}>
+            <button onClick={closeDetail} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: '0.2rem' }}>
+              <ArrowLeft size={24} />
+            </button>
+            <span style={{ fontWeight: 600, fontSize: '1rem' }}>상품 상세</span>
+          </div>
+
+          <div style={{ height: '300px', background: CARD_BG[detailProduct.id % CARD_BG.length], display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Shirt size={110} style={{ opacity: 0.3 }} />
+          </div>
+
+          <div style={{ padding: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+              <div style={{ flex: 1, marginRight: '1rem' }}>
+                <h2 style={{ fontSize: '1.2rem', fontWeight: 700, lineHeight: 1.3, marginBottom: '0.35rem' }}>{detailProduct.name}</h2>
+                <p style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--primary)' }}>{detailProduct.price.toLocaleString()}원</p>
+              </div>
+              <button
+                onClick={handleDetailHeart}
+                disabled={!detailColor || !detailSize}
+                title={(!detailColor || !detailSize) ? '색상과 사이즈를 먼저 선택하세요' : ''}
+                style={{ background: 'none', border: 'none', cursor: (!detailColor || !detailSize) ? 'default' : 'pointer', opacity: (!detailColor || !detailSize) ? 0.3 : 1, padding: '0.25rem', flexShrink: 0 }}
+              >
+                <Heart size={30} fill={isDetailHearted ? '#ef4444' : 'none'} color={isDetailHearted ? '#ef4444' : 'var(--text-primary)'} />
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '1.25rem' }}>
+              <p style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>색상</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {detailColors.map(color => (
+                  <button
+                    key={color}
+                    onClick={() => setDetailColor(color)}
+                    style={{
+                      padding: '0.4rem 1.1rem', borderRadius: '2rem', fontSize: '0.9rem', cursor: 'pointer',
+                      background: detailColor === color ? 'var(--primary)' : 'var(--surface-hover)',
+                      color:      detailColor === color ? 'white' : 'var(--text-primary)',
+                      border:     detailColor === color ? '2px solid var(--primary)' : '2px solid transparent',
+                      fontWeight: detailColor === color ? 700 : 400,
+                    }}
+                  >
+                    {color}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '1.25rem' }}>
+              <p style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>사이즈</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {detailSizes.map(size => (
+                  <button
+                    key={size}
+                    onClick={() => setDetailSize(size)}
+                    style={{
+                      padding: '0.4rem 1.1rem', borderRadius: '2rem', fontSize: '0.9rem', cursor: 'pointer', minWidth: '3rem',
+                      background: detailSize === size ? 'var(--primary)' : 'var(--surface-hover)',
+                      color:      detailSize === size ? 'white' : 'var(--text-primary)',
+                      border:     detailSize === size ? '2px solid var(--primary)' : '2px solid transparent',
+                      fontWeight: detailSize === size ? 700 : 400,
+                    }}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+              {!detailColor && !detailSize
+                ? '색상과 사이즈를 선택한 후 하트를 눌러주세요.'
+                : !detailColor
+                ? '색상을 선택해주세요.'
+                : !detailSize
+                ? '사이즈를 선택해주세요.'
+                : isDetailHearted
+                ? '피팅 요청 목록에 담겼습니다. 하트를 다시 누르면 취소됩니다.'
+                : '오른쪽 상단 하트를 눌러 피팅 요청 목록에 추가하세요.'}
+            </p>
+          </div>
         </div>
       )}
 
-      {/* Floating Action Bar */}
-      {!isSuccess && taggedItems.length > 0 && (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '1rem', background: 'var(--bg-color)', borderTop: '1px solid var(--border)', zIndex: 10 }}>
-          <button 
-            className="btn btn-primary"
-            style={{ width: '100%', padding: '1.2rem', fontSize: '1.1rem', borderRadius: '1rem', fontWeight: 'bold', opacity: isSubmitting ? 0.7 : 1 }}
+      {/* ─── 피팅 요청 성공 모달 ─────────────────────────────────── */}
+      {showSuccess && successData && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '1rem' }}>
+          <div style={{ background: 'var(--bg-color)', borderRadius: '1.5rem', padding: '2rem 1.5rem', textAlign: 'center', width: '100%', maxWidth: '360px' }}>
+            <CheckCircle size={56} color="#10b981" style={{ margin: '0 auto 1rem' }} />
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1.25rem' }}>피팅 요청 완료</h2>
+            <div style={{ background: 'var(--surface)', borderRadius: '1rem', padding: '1.25rem', marginBottom: '1rem' }}>
+              <p style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>
+                고객번호: <strong style={{ fontSize: '1.4em', color: 'var(--primary)' }}>{successData.customerNumber}번</strong>
+              </p>
+              {successData.roomNumber != null ? (
+                <p style={{ fontSize: '1rem' }}>
+                  피팅룸: <strong style={{ fontSize: '1.4em', color: 'var(--primary)' }}>{successData.roomNumber}번</strong>
+                </p>
+              ) : (
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>피팅룸은 잠시 후 배정됩니다.</p>
+              )}
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', marginBottom: '1.5rem' }}>직원이 상품을 준비하고 있습니다.</p>
+            <button
+              onClick={() => setShowSuccess(false)}
+              style={{ width: '100%', padding: '0.9rem', borderRadius: '1rem', fontWeight: 700, fontSize: '1rem', background: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer' }}
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 하단 고정 피팅 요청 버튼 ─────────────────────────────── */}
+      {view === 'list' && (
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '0.875rem 1rem', background: 'var(--bg-color)', borderTop: '1px solid var(--border)', zIndex: 5 }}>
+          <button
             onClick={handleFittingRequest}
-            disabled={isSubmitting}
+            disabled={pendingItems.length === 0 || isSubmitting}
+            style={{
+              width: '100%', padding: '0.95rem', borderRadius: '1rem', fontWeight: 700, fontSize: '1rem',
+              background: pendingItems.length > 0 ? 'var(--primary)' : 'var(--surface-hover)',
+              color:      pendingItems.length > 0 ? 'white' : 'var(--text-muted)',
+              border:     'none',
+              cursor:     pendingItems.length > 0 && !isSubmitting ? 'pointer' : 'default',
+              opacity:    isSubmitting ? 0.7 : 1,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+            }}
           >
             {isSubmitting ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
-                {t('Submitting...')}
-              </span>
+              <>
+                <span style={{ width: '18px', height: '18px', border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.8s linear infinite' }} />
+                요청 중...
+              </>
             ) : (
-              <span className="flex items-center justify-center gap-2">
-                <Shirt size={20} /> {t('Confirm & Request Fitting')}
-              </span>
+              <>
+                <Heart size={18} fill={pendingItems.length > 0 ? 'white' : 'none'} />
+                피팅 요청하기 ({pendingItems.length}개)
+              </>
             )}
           </button>
         </div>
       )}
 
-      {toastMessage && (
-        <div className="toast">
-          {toastMessage}
-        </div>
-      )}
+      {toast && <div className="toast">{toast}</div>}
     </div>
   );
 };

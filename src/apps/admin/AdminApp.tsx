@@ -1,27 +1,19 @@
 import { useEffect } from 'react';
 import { format } from 'date-fns';
-import { LayoutDashboard, Users, Activity, CheckCircle2 } from 'lucide-react';
-import { ThemeToggle } from '../../components/ThemeToggle';
-import { LanguageToggle } from '../../components/LanguageToggle';
+import { Users, Activity, CheckCircle2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useRequests, useAdminStats } from '../../hooks/useRequests';
 
 export const AdminApp = () => {
   const { t } = useTranslation();
-
-  // useRequests: 요청 목록 (GET /requests 로 교체 가능)
   const { requests, refreshRequests } = useRequests();
 
-  // 🔄 백엔드 데이터 동기화 (초기 로딩 + 3초 주기 폴링)
   useEffect(() => {
     refreshRequests();
-    const interval = setInterval(() => {
-      refreshRequests();
-    }, 3000);
+    const interval = setInterval(refreshRequests, 3000);
     return () => clearInterval(interval);
   }, [refreshRequests]);
 
-  // useAdminStats: 통계 (GET /admin/stats 로 교체 가능)
   const stats = useAdminStats();
 
   return (
@@ -31,16 +23,9 @@ export const AdminApp = () => {
           <h1 className="text-3xl font-bold">{t('KEEP Admin Dashboard')}</h1>
           <p className="text-muted mt-2">{t('Real-time overview of NFC fitting requests and operations.')}</p>
         </div>
-        <div className="flex items-center gap-4">
-          <ThemeToggle />
-          <LanguageToggle />
-          <button className="btn btn-secondary">
-            <LayoutDashboard size={18} /> {t('Export Data')}
-          </button>
-        </div>
       </div>
 
-      {/* 통계 카드 — useAdminStats() / GET /admin/stats */}
+      {/* 통계 카드 */}
       <div className="grid-cols-4 mb-8">
         <div className="card p-6 flex items-center gap-4 animate-slide-in" style={{ animationDelay: '0ms' }}>
           <div style={{ background: '#e0e7ff', padding: '1rem', borderRadius: '50%', color: '#4f46e5' }}>
@@ -83,14 +68,14 @@ export const AdminApp = () => {
         </div>
       </div>
 
-      {/* 요청 로그 테이블 — useRequests() / GET /requests */}
+      {/* 요청 로그 테이블 */}
       <h2 className="text-xl font-bold mb-4">{t('Live Request Log')}</h2>
       <div className="table-container">
         <table>
           <thead>
             <tr>
               <th>{t('Time')}</th>
-              <th>{t('Req ID')}</th>
+              <th>고객번호</th>
               <th>{t('Fitting Room')}</th>
               <th>{t('Product')}</th>
               <th>{t('Status')}</th>
@@ -103,16 +88,23 @@ export const AdminApp = () => {
               return (
                 <tr key={req.requestId}>
                   <td className="font-medium">{format(req.requestTime, 'HH:mm:ss')}</td>
-                  <td className="text-sm text-muted">{req.requestId.slice(-6)}</td>
-                  <td className="font-bold" style={{ textAlign: 'center' }}>{req.fittingRoomId ? `Room ${req.fittingRoomId}` : '-'}</td>
-                  {/* 단일 상품 — 백엔드 구조: 요청 1개 = 상품 1개 */}
+                  <td className="font-bold" style={{ textAlign: 'center' }}>#{req.customerNumber ?? '-'}</td>
+                  <td className="font-bold" style={{ textAlign: 'center' }}>
+                    {req.fittingRoomId ? `Room ${req.fittingRoomId}` : '-'}
+                  </td>
                   <td className="text-sm">
-                    <span title={`${req.color} / ${req.size}`}>
-                      {req.productName}
-                    </span>
-                    <span className="text-muted" style={{ fontSize: '0.75rem', marginLeft: '4px' }}>
-                      ({req.color} / {req.size})
-                    </span>
+                    {req.items.length > 0 ? (
+                      req.items.map(item => (
+                        <div key={item.id}>
+                          <span>{item.productName}</span>
+                          <span className="text-muted" style={{ fontSize: '0.75rem', marginLeft: '4px' }}>
+                            ({item.color}/{item.size})
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-muted">-</span>
+                    )}
                   </td>
                   <td>
                     <span className={`status-badge ${req.status}`}>{t(req.status)}</span>

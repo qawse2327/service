@@ -3,27 +3,16 @@ import { useRequests } from '../../hooks/useRequests';
 import { Clock, CheckSquare, Shirt } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ko, enUS } from 'date-fns/locale';
-import { ThemeToggle } from '../../components/ThemeToggle';
-import { LanguageToggle } from '../../components/LanguageToggle';
 import { useTranslation } from 'react-i18next';
-import { mockProducts } from '../../mock/products';
 import type { FittingStatus } from '../../types/request';
 
 export const StaffApp = () => {
   const { t, i18n } = useTranslation();
-
-  // useRequests hook — getRequests()/updateStatus() 를 통해 서비스 계층 사용
-  // 실제 API 연동 시 hook 내부만 변경, 이 컴포넌트는 수정 불필요
   const { requests, updateStatus, refreshRequests } = useRequests();
 
-  // 🔄 백엔드 데이터 동기화 (초기 로딩 + 3초 주기 폴링)
   useEffect(() => {
-    refreshRequests(); // 초기 로딩
-    
-    const interval = setInterval(() => {
-      refreshRequests();
-    }, 3000); // 3초마다 갱신
-    
+    refreshRequests();
+    const interval = setInterval(refreshRequests, 3000);
     return () => clearInterval(interval);
   }, [refreshRequests]);
 
@@ -38,10 +27,6 @@ export const StaffApp = () => {
           <h1 className="text-3xl font-bold">{t('KEEP Staff Portal')}</h1>
           <p className="text-muted mt-2">{t('Manage fitting requests for NFC customers.')}</p>
         </div>
-        <div className="flex items-center gap-4">
-          <ThemeToggle />
-          <LanguageToggle />
-        </div>
       </div>
 
       <div className="flex-col gap-4">
@@ -52,14 +37,23 @@ export const StaffApp = () => {
         ) : (
           requests.map((req) => (
             <div key={req.requestId} className="card p-4 flex-col gap-4 animate-slide-in">
+
+              {/* 요청 헤더: 고객번호 · 피팅룸 · 상태 · 시간 */}
               <div className="flex justify-between items-start border-b pb-4" style={{ borderColor: 'var(--border)' }}>
                 <div>
                   <div className="flex items-center gap-3 mb-2">
-                    <span className="font-bold text-lg">{t('Fitting Room')} {req.fittingRoomId || t('Waiting...')}</span>
+                    <span className="font-bold text-lg">
+                      고객 #{req.customerNumber ?? '-'}
+                      {req.fittingRoomId && (
+                        <span style={{ marginLeft: '0.5rem', color: 'var(--primary)' }}>
+                          — {t('Fitting Room')} {req.fittingRoomId}
+                        </span>
+                      )}
+                    </span>
                     <span className={`status-badge ${req.status}`}>{t(req.status)}</span>
                   </div>
                   <div className="text-sm text-muted flex items-center gap-1">
-                    <Clock size={14}/>
+                    <Clock size={14} />
                     {formatDistanceToNow(req.requestTime, {
                       addSuffix: true,
                       locale: i18n.language === 'ko' ? ko : enUS,
@@ -67,7 +61,7 @@ export const StaffApp = () => {
                   </div>
                 </div>
 
-                {/* 상태 변경 버튼 — PATCH /requests/:id/status 로 교체 가능 */}
+                {/* 상태 변경 버튼 */}
                 <div className="flex gap-2">
                   {req.status === 'pending' && (
                     <button
@@ -89,36 +83,31 @@ export const StaffApp = () => {
                 </div>
               </div>
 
-              {/* 단일 상품 표시 — 백엔드 구조: 요청 1개 = 상품 1개 */}
+              {/* 요청 상품 목록 */}
               <div>
                 <h4 className="text-sm font-semibold text-muted mb-3 flex items-center gap-2">
-                  <Shirt size={16} /> {t('Requested Item')}
+                  <Shirt size={16} /> {t('Requested Item')} ({req.items.length}개)
                 </h4>
-                <div className="flex gap-3 items-center p-3" style={{ background: 'var(--surface-hover)', borderRadius: '8px' }}>
-                  {(() => {
-                    const productDef = mockProducts.find(p => p.id === req.productId);
-                    return (
-                      <>
-                        {productDef && (
-                          <img
-                            src={productDef.imageUrl}
-                            alt={req.productName}
-                            style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }}
-                          />
-                        )}
-                        <div>
-                          <p className="font-medium">{req.productName}</p>
-                          <p className="text-sm text-muted flex gap-2 mt-1">
-                            <span>{t('Color')}: <strong style={{ color: 'var(--text-primary)' }}>{req.color}</strong></span>
-                            <span>|</span>
-                            <span>{t('Size')}: <strong style={{ color: 'var(--text-primary)' }}>{req.size}</strong></span>
-                          </p>
-                        </div>
-                      </>
-                    );
-                  })()}
+                <div className="flex-col gap-2">
+                  {req.items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex gap-3 items-center p-3"
+                      style={{ background: 'var(--surface-hover)', borderRadius: '8px' }}
+                    >
+                      <div>
+                        <p className="font-medium">{item.productName}</p>
+                        <p className="text-sm text-muted flex gap-2 mt-1">
+                          <span>{t('Color')}: <strong style={{ color: 'var(--text-primary)' }}>{item.color}</strong></span>
+                          <span>|</span>
+                          <span>{t('Size')}: <strong style={{ color: 'var(--text-primary)' }}>{item.size}</strong></span>
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
+
             </div>
           ))
         )}
