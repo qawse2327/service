@@ -17,7 +17,9 @@
       "Bash(Select-Object Name, PSIsContainer)",
       "Bash(Format-Table -AutoSize)",
       "Bash(python *)",
-      "Bash(npx vite *)"
+      "Bash(npx vite *)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(New-Item *)"
     ]
   }
 }

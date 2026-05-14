@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { ArrowLeft, Heart, CheckCircle, Shirt, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Product } from '../../types/request';
 import { getProduct, createBatchRequest } from '../../services/apiRequestService';
+import { getProductImageUrl } from '../../utils/productImages';
 
 // ─── localStorage keys ──────────────────────────────────────────
 const KEY_TAGGED     = 'keep_tagged_products';
@@ -48,11 +49,10 @@ function getColorBg(color: string, productId: number): string {
 }
 
 // ─── 이미지 경로 규칙 ────────────────────────────────────────────
-// /products/p{003d}-{color-slug}.png
-// 예: /products/p001-black.png, /products/p015-dark-blue.png
+// /images/products/product-{두 자리 ID}-{color-slug}.png
+// 예: /images/products/product-01-black.png
 function getImageUrl(productId: number, color: string): string {
-  const slug = color.toLowerCase().replace(/\s+/g, '-');
-  return `/products/p${String(productId).padStart(3, '0')}-${slug}.png`;
+  return getProductImageUrl(productId, color);
 }
 
 function isDarkColor(color: string): boolean {
