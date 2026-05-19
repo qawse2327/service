@@ -8,6 +8,7 @@ import os
 import uuid
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
@@ -260,6 +261,15 @@ def find_variant_id(cur: sqlite3.Cursor, product_id: str, color: str, size: str)
     except (ValueError, TypeError):
         return None
 
+def get_next_customer_number(cur: sqlite3.Cursor) -> int:
+    """오늘 날짜 기준 다음 customer_number 반환 (하루 단위 1번부터 시작)"""
+    today = datetime.now().strftime('%Y-%m-%d')
+    row = cur.execute(
+        "SELECT COALESCE(MAX(customer_number), 0) + 1 FROM fitting_requests WHERE substr(requested_at, 1, 10) = ?",
+        (today,),
+    ).fetchone()
+    return row[0]
+
 def build_response(cur: sqlite3.Cursor, req) -> dict:
     """fitting_requests 행 + items를 프론트 응답 형태로 변환"""
     items_rows = cur.execute(
@@ -339,20 +349,19 @@ def create_request(item: CreateRequestItem):
     conn = get_db()
     cur = conn.cursor()
     try:
-        # 같은 세션의 기존 요청 확인
+        # 같은 세션의 오늘 날짜 기존 요청 확인
+        today = datetime.now().strftime('%Y-%m-%d')
         existing = cur.execute(
-            "SELECT id FROM fitting_requests WHERE session_id = ?",
-            (item.session_id,),
+            "SELECT id FROM fitting_requests WHERE session_id = ? AND substr(requested_at, 1, 10) = ?",
+            (item.session_id, today),
         ).fetchone()
 
         if existing:
             request_id = existing["id"]
         else:
-            # 새 fitting_request 생성
+            # 새 fitting_request 생성 (오늘 기준 customer_number 발급)
             request_id = f"req-{uuid.uuid4().hex[:8]}"
-            customer_number = cur.execute(
-                "SELECT COUNT(*) FROM fitting_requests"
-            ).fetchone()[0] + 1
+            customer_number = get_next_customer_number(cur)
 
             cur.execute(
                 """INSERT INTO fitting_requests
@@ -401,16 +410,16 @@ def create_batch_request(body: BatchRequestBody):
     conn = get_db()
     cur = conn.cursor()
     try:
-        # 1. customer_number: 같은 session_id의 기존 번호 재사용
+        # 1. customer_number: 오늘 날짜 기준 같은 session_id의 기존 번호 재사용
+        today = datetime.now().strftime('%Y-%m-%d')
         prev = cur.execute(
-            "SELECT customer_number FROM fitting_requests WHERE session_id = ? ORDER BY requested_at LIMIT 1",
-            (body.session_id,),
+            "SELECT customer_number FROM fitting_requests WHERE session_id = ? AND substr(requested_at, 1, 10) = ? ORDER BY requested_at LIMIT 1",
+            (body.session_id, today),
         ).fetchone()
         if prev:
             customer_number = prev["customer_number"]
         else:
-            max_num = cur.execute("SELECT MAX(customer_number) FROM fitting_requests").fetchone()[0]
-            customer_number = (max_num or 0) + 1
+            customer_number = get_next_customer_number(cur)
 
         # 2. 활성 방 확인 (같은 session_id의 non-completed 요청 중 방이 있는 것)
         active = cur.execute(
@@ -620,6 +629,122 @@ def get_product(product_id: int):
                 for v in variants
             ],
         }
+    finally:
+        conn.close()
+
+
+_DB_VIEW_STYLE = """
+<style>
+  body { font-family: sans-serif; margin: 24px; background: #f5f5f5; color: #222; }
+  h1 { font-size: 1.4rem; margin-bottom: 6px; }
+  p.sub { color: #666; font-size: 0.85rem; margin-bottom: 20px; }
+  a { color: #1a73e8; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  table { border-collapse: collapse; background: #fff; width: 100%; font-size: 0.88rem; }
+  th { background: #1a73e8; color: #fff; padding: 8px 12px; text-align: left; }
+  td { padding: 7px 12px; border-bottom: 1px solid #e0e0e0; white-space: nowrap; }
+  tr:hover td { background: #f0f7ff; }
+  .badge { display: inline-block; background: #e8f0fe; color: #1a73e8;
+           border-radius: 4px; padding: 1px 7px; font-size: 0.8rem; }
+  .back { margin-bottom: 16px; display: inline-block; }
+  .warn { color: #c62828; font-size: 0.85rem; margin-top: 10px; }
+</style>
+"""
+
+HIGHLIGHT_TABLES = {"products", "product_variants", "fitting_requests", "fitting_request_items"}
+
+
+@app.get("/db-view", response_class=HTMLResponse)
+def db_view_index():
+    """DB 테이블 목록 (읽기 전용 시연 페이지)"""
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        tables = cur.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+        ).fetchall()
+
+        rows_html = ""
+        for t in tables:
+            name = t["name"]
+            count = cur.execute(f"SELECT COUNT(*) FROM \"{name}\"").fetchone()[0]
+            highlight = " ★" if name in HIGHLIGHT_TABLES else ""
+            badge = f'<span class="badge">{count} rows</span>'
+            rows_html += (
+                f"<tr><td><a href='/db-view/{name}'>{name}{highlight}</a></td>"
+                f"<td>{badge}</td></tr>\n"
+            )
+
+        html = f"""<!DOCTYPE html>
+<html lang='ko'>
+<head><meta charset='UTF-8'><title>KEEP DB View</title>{_DB_VIEW_STYLE}</head>
+<body>
+<h1>KEEP — DB 테이블 목록</h1>
+<p class='sub'>★ 표시 테이블이 핵심 시연 테이블입니다. 테이블명을 클릭하면 데이터를 확인할 수 있습니다.</p>
+<table>
+  <thead><tr><th>테이블명</th><th>행 수</th></tr></thead>
+  <tbody>{rows_html}</tbody>
+</table>
+<p class='warn'>⚠ 이 페이지는 읽기 전용입니다. 데이터 수정은 불가합니다.</p>
+</body></html>"""
+        return HTMLResponse(content=html)
+    finally:
+        conn.close()
+
+
+@app.get("/db-view/{table_name}", response_class=HTMLResponse)
+def db_view_table(table_name: str):
+    """선택 테이블 데이터 조회 (최대 100행, 읽기 전용)"""
+    conn = get_db()
+    cur = conn.cursor()
+    try:
+        # sqlite_ 내부 테이블 차단
+        if table_name.startswith("sqlite_"):
+            raise HTTPException(status_code=403, detail="내부 테이블은 조회할 수 없습니다.")
+
+        # 테이블 존재 여부 확인
+        exists = cur.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+            (table_name,),
+        ).fetchone()
+        if not exists:
+            raise HTTPException(status_code=404, detail=f"테이블 '{table_name}'을 찾을 수 없습니다.")
+
+        rows = cur.execute(f"SELECT * FROM \"{table_name}\" LIMIT 100").fetchall()
+        total = cur.execute(f"SELECT COUNT(*) FROM \"{table_name}\"").fetchone()[0]
+
+        if not rows:
+            body_html = "<tr><td colspan='99' style='color:#999;padding:16px'>데이터 없음</td></tr>"
+            header_html = "<th>—</th>"
+        else:
+            cols = rows[0].keys()
+            header_html = "".join(f"<th>{c}</th>" for c in cols)
+            body_html = ""
+            for r in rows:
+                cells = "".join(
+                    f"<td>{'' if r[c] is None else r[c]}</td>" for c in cols
+                )
+                body_html += f"<tr>{cells}</tr>\n"
+
+        shown = min(len(rows), 100)
+        note = f"{shown}/{total}행 표시" + (" (100행 제한)" if total > 100 else "")
+
+        html = f"""<!DOCTYPE html>
+<html lang='ko'>
+<head><meta charset='UTF-8'><title>KEEP DB — {table_name}</title>{_DB_VIEW_STYLE}</head>
+<body>
+<a class='back' href='/db-view'>← 테이블 목록으로</a>
+<h1>{table_name}</h1>
+<p class='sub'>{note}</p>
+<div style='overflow-x:auto'>
+<table>
+  <thead><tr>{header_html}</tr></thead>
+  <tbody>{body_html}</tbody>
+</table>
+</div>
+<p class='warn'>⚠ 이 페이지는 읽기 전용입니다. 데이터 수정은 불가합니다.</p>
+</body></html>"""
+        return HTMLResponse(content=html)
     finally:
         conn.close()
 

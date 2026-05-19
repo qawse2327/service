@@ -19,7 +19,8 @@
       "Bash(python *)",
       "Bash(npx vite *)",
       "PowerShell(Get-ChildItem *)",
-      "PowerShell(New-Item *)"
+      "PowerShell(New-Item *)",
+      "PowerShell(python C:\\\\Users\\\\USER\\\\service\\\\jyking4\\\\update_product.py)"
     ]
   }
 }

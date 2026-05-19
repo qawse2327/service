@@ -1,14 +1,27 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRequests } from '../../hooks/useRequests';
-import { Clock, CheckSquare, Shirt } from 'lucide-react';
+import { Clock, CheckSquare, Shirt, RotateCcw } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ko, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import type { FittingStatus } from '../../types/request';
 
+const HIDDEN_IDS_KEY = 'keep_staff_hidden_request_ids';
+
+const loadHiddenIds = (): Set<string> => {
+  try {
+    const saved = localStorage.getItem(HIDDEN_IDS_KEY);
+    return saved ? new Set(JSON.parse(saved) as string[]) : new Set();
+  } catch {
+    return new Set();
+  }
+};
+
 export const StaffApp = () => {
   const { t, i18n } = useTranslation();
   const { requests, updateStatus, refreshRequests } = useRequests();
+
+  const [hiddenRequestIds, setHiddenRequestIds] = useState<Set<string>>(loadHiddenIds);
 
   useEffect(() => {
     refreshRequests();
@@ -16,26 +29,52 @@ export const StaffApp = () => {
     return () => clearInterval(interval);
   }, [refreshRequests]);
 
+  const visibleRequests = useMemo(
+    () => requests.filter(r => !hiddenRequestIds.has(r.requestId)),
+    [requests, hiddenRequestIds]
+  );
+
+  const handleReset = () => {
+    const nextHidden = new Set(hiddenRequestIds);
+    visibleRequests.forEach(r => nextHidden.add(r.requestId));
+    localStorage.setItem(HIDDEN_IDS_KEY, JSON.stringify([...nextHidden]));
+    setHiddenRequestIds(nextHidden);
+  };
+
   const handleStatusChange = async (requestId: string, nextStatus: FittingStatus) => {
     await updateStatus(requestId, nextStatus);
   };
 
   return (
     <div className="app-container">
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
           <h1 className="text-3xl font-bold">{t('KEEP Staff Portal')}</h1>
           <p className="text-muted mt-2">{t('Manage fitting requests for NFC customers.')}</p>
         </div>
+        <button
+          onClick={handleReset}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.35rem',
+            padding: '0.45rem 0.9rem', fontSize: '0.82rem', fontWeight: 500,
+            background: 'var(--surface)', color: 'var(--text-muted)',
+            border: '1px solid var(--border)', borderRadius: '8px',
+            cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+          }}
+          title="DB 데이터는 유지하고 현재 화면에 표시된 요청만 숨깁니다."
+        >
+          <RotateCcw size={13} />
+          화면 초기화
+        </button>
       </div>
 
       <div className="flex-col gap-4">
-        {requests.length === 0 ? (
+        {visibleRequests.length === 0 ? (
           <div className="p-8 text-center text-muted" style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)' }}>
             {t('No fitting requests at the moment.')}
           </div>
         ) : (
-          requests.map((req) => (
+          visibleRequests.map((req) => (
             <div key={req.requestId} className="card p-4 flex-col gap-4 animate-slide-in">
 
               {/* 요청 헤더: 고객번호 · 피팅룸 · 상태 · 시간 */}
