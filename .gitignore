@@ -1,3 +1,9 @@
 venv/
 node_modules/
 .DS_Store
+
+# Local database
+keep_service.db
+*.db-journal
+*.db-wal
+*.db-shm
